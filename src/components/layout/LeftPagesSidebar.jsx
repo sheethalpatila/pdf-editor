@@ -39,7 +39,7 @@ export default function LeftPagesSidebar({
                   key={page}
                   onClick={() => setSelectedPage(page)}
                   className={`
-                    mx-auto block rounded-md border bg-white p-1 transition
+                    mx-auto block rounded-sm border bg-white mb-2 transition
                     ${
                       active
                         ? "border-blue-600 ring-2 ring-blue-200"

@@ -97,10 +97,9 @@ export default function ToolBar({
               onClick={() => handleToolClick(tool.id)}
               className={`
                 h-9 px-3 rounded-md flex items-center gap-2 text-sm font-medium transition
-                ${
-                  active
-                    ? "bg-blue-600 text-white"
-                    : "text-[#374151] hover:bg-[#f3f4f6]"
+                ${active
+                  ? "bg-blue-600 text-white"
+                  : "text-[#374151] hover:bg-[#f3f4f6]"
                 }
               `}
             >
