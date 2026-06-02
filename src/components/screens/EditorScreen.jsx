@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import { Document, Page, pdfjs } from "react-pdf";
 
 import TextOverlay from "../editor/TextOverlay";
@@ -13,6 +15,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
+const PAGE_WIDTH = 820;
+
 export default function EditorScreen({
   fileRecord,
   fileUrl,
@@ -26,6 +30,8 @@ export default function EditorScreen({
   setEdits,
   setPageViewports
 }) {
+  const pageWrapperRef = useRef(null);
+
   const handleLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
 
@@ -49,11 +55,7 @@ export default function EditorScreen({
     });
   };
 
-  const addImageLikeEdit = async ({
-    x,
-    y,
-    type
-  }) => {
+  const addImageLikeEdit = async ({ x, y, type }) => {
     const input = document.createElement("input");
 
     input.type = "file";
@@ -276,15 +278,12 @@ export default function EditorScreen({
     setSelectedElement(null);
   };
 
-  const handleRenderSuccess = () => {
-    setTimeout(() => {
-      const pageElement = document.querySelector(
-        `[data-page-number="${selectedPage}"]`
-      );
+  const updateMainPageViewport = () => {
+    window.requestAnimationFrame(() => {
+      if (!pageWrapperRef.current) return;
 
-      if (!pageElement) return;
-
-      const rect = pageElement.getBoundingClientRect();
+      const rect =
+        pageWrapperRef.current.getBoundingClientRect();
 
       setPageViewports((prev) => ({
         ...prev,
@@ -293,7 +292,7 @@ export default function EditorScreen({
           height: rect.height
         }
       }));
-    }, 0);
+    });
   };
 
   return (
@@ -331,9 +330,10 @@ export default function EditorScreen({
             }
           >
             <div
+              ref={pageWrapperRef}
               onClick={handlePageClick}
               className={`
-                relative bg-white shadow-xl
+                relative inline-block bg-white shadow-xl
                 ${
                   activeTool === "text"
                     ? "cursor-text"
@@ -348,10 +348,10 @@ export default function EditorScreen({
             >
               <Page
                 pageNumber={selectedPage}
-                width={820}
+                width={PAGE_WIDTH}
                 renderTextLayer={true}
                 renderAnnotationLayer={true}
-                onRenderSuccess={handleRenderSuccess}
+                onRenderSuccess={updateMainPageViewport}
               />
 
               {pageEdits.map((edit) => {

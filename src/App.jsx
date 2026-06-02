@@ -165,6 +165,8 @@ export default function App() {
   };
 
   const handleDownload = async () => {
+      console.log("Exporting edits:", edits);
+  console.log("Page viewports:", pageViewports);
     await exportEditedPdf({
       fileRecord,
       edits,
