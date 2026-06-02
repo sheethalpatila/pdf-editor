@@ -298,21 +298,7 @@ export default function EditorScreen({
   return (
     <div className="h-full overflow-auto p-8">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-[#111827]">
-              {fileRecord?.name}
-            </h2>
 
-            <p className="text-xs text-[#6b7280]">
-              Active tool: {activeTool}
-            </p>
-          </div>
-
-          <p className="text-xs font-bold text-[#6b7280]">
-            Page {selectedPage}
-          </p>
-        </div>
 
         <div className="flex justify-center pb-20">
           <Document

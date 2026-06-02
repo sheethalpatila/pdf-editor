@@ -62,10 +62,9 @@ export default function TopBar({
                   disabled={recentFiles.length === 0}
                   className={`
                     flex items-center gap-1 text-xs font-bold
-                    ${
-                      recentFiles.length === 0
-                        ? "text-[#9ca3af] cursor-not-allowed"
-                        : "text-red-600 hover:text-red-700"
+                    ${recentFiles.length === 0
+                      ? "text-[#9ca3af] cursor-not-allowed"
+                      : "text-red-600 hover:text-red-700"
                     }
                   `}
                 >
@@ -73,7 +72,6 @@ export default function TopBar({
                   Clear all
                 </button>
               </div>
-
               {recentFiles.length === 0 ? (
                 <div className="p-4 text-sm text-[#6b7280]">
                   No previous files
@@ -155,10 +153,9 @@ export default function TopBar({
           onClick={onDownload}
           className={`
             h-10 px-6 rounded-lg text-sm font-bold flex items-center gap-2
-            ${
-              hasFile
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
+            ${hasFile
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
             }
           `}
         >

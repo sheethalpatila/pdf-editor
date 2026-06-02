@@ -239,10 +239,10 @@ export default function App() {
         const updatedEdits = prev.map((edit) =>
           edit.id === selectedElement.id
             ? {
-                ...edit,
-                ...updates,
-                selected: true
-              }
+              ...edit,
+              ...updates,
+              selected: true
+            }
             : edit
         );
 
@@ -340,6 +340,53 @@ export default function App() {
 
       if (isTyping) return;
 
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleDone();
+      }
+
+      if (!modKey) {
+        const key = event.key.toLowerCase();
+
+        if (key === "t") {
+          event.preventDefault();
+          setActiveTool("text");
+        }
+
+        if (key === "c") {
+          event.preventDefault();
+          setActiveTool("cover");
+        }
+
+        if (key === "h") {
+          event.preventDefault();
+          setActiveTool("highlight");
+        }
+
+        if (key === "i") {
+          event.preventDefault();
+          setActiveTool("image");
+        }
+
+        if (key === "s") {
+          event.preventDefault();
+          setActiveTool("sign");
+        }
+
+        if (key === "v") {
+          event.preventDefault();
+          setActiveTool("select");
+        }
+      }
+
+      if (
+        modKey &&
+        event.key.toLowerCase() === "d"
+      ) {
+        event.preventDefault();
+        handleDownload();
+      }
+
       const isMac =
         navigator.platform
           .toLowerCase()
@@ -389,7 +436,9 @@ export default function App() {
     selectedElement,
     deleteSelectedElement,
     handleUndo,
-    handleRedo
+    handleRedo,
+    handleDone,
+    handleDownload
   ]);
 
   const pages = Array.from(

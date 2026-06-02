@@ -26,26 +26,26 @@ const fontSizes = [
   40
 ];
 
-
-
 export default function RightPanel({
   selectedElement,
   onUpdateSelected,
   onDeleteSelected
 }) {
   return (
-    <aside className="border-l border-[#e5e7eb] bg-white flex flex-col">
-      <div className="px-6 py-5 border-b border-[#e5e7eb]">
-        <h2 className="text-lg font-bold text-[#111827]">
+    <aside className="h-full border-l border-[#e5e7eb] bg-white flex flex-col overflow-hidden">
+      {/* STICKY HEADER */}
+      <div className="shrink-0 px-6 py-2 border-b border-[#e5e7eb] bg-white">
+        <h2 className="text-md font-bold text-[#111827]">
           Properties
         </h2>
 
-        <p className="text-sm text-[#6b7280]">
+        <p className="text-xs text-[#6b7280]">
           Edit selected element
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* SCROLLABLE PROPERTIES AREA */}
+      <div className="min-h-0 flex-[1.4] overflow-y-auto p-6">
         {!selectedElement ? (
           <EmptyState />
         ) : selectedElement.type === "text" ? (
@@ -55,31 +55,32 @@ export default function RightPanel({
             onDeleteSelected={onDeleteSelected}
           />
         ) : selectedElement.type === "cover" ? (
-  <CoverProperties
-    selectedElement={selectedElement}
-    onUpdateSelected={onUpdateSelected}
-    onDeleteSelected={onDeleteSelected}
-  />
-) : selectedElement.type === "highlight" ? (
-  <HighlightProperties
-    selectedElement={selectedElement}
-    onUpdateSelected={onUpdateSelected}
-    onDeleteSelected={onDeleteSelected}
-  />
-) : selectedElement.type === "image" ||
-  selectedElement.type === "sign" ? (
-  <ImageProperties
-    selectedElement={selectedElement}
-    onUpdateSelected={onUpdateSelected}
-    onDeleteSelected={onDeleteSelected}
-  />
-) : (
-  <UnsupportedElement />
-)}
+          <CoverProperties
+            selectedElement={selectedElement}
+            onUpdateSelected={onUpdateSelected}
+            onDeleteSelected={onDeleteSelected}
+          />
+        ) : selectedElement.type === "highlight" ? (
+          <HighlightProperties
+            selectedElement={selectedElement}
+            onUpdateSelected={onUpdateSelected}
+            onDeleteSelected={onDeleteSelected}
+          />
+        ) : selectedElement.type === "image" ||
+          selectedElement.type === "sign" ? (
+          <ImageProperties
+            selectedElement={selectedElement}
+            onUpdateSelected={onUpdateSelected}
+            onDeleteSelected={onDeleteSelected}
+          />
+        ) : (
+          <UnsupportedElement />
+        )}
       </div>
 
-      <div className="border-t border-[#e5e7eb] bg-[#f9fafb] p-5">
-        <div className="flex items-center justify-between mb-3">
+      {/* STICKY SHORTCUTS AREA */}
+      <div className="shrink-0 border-t border-[#e5e7eb] bg-[#f9fafb]">
+        <div className="px-5 pt-4 pb-3 border-b border-[#e5e7eb] bg-[#f9fafb] flex items-center justify-between">
           <h3 className="text-sm font-bold text-[#111827]">
             Shortcuts
           </h3>
@@ -90,9 +91,20 @@ export default function RightPanel({
           />
         </div>
 
-        <Shortcut label="Add Text" value="T" />
-        <Shortcut label="Cover" value="C" />
-        <Shortcut label="Delete" value="Del" />
+        <div className="max-h-[220px] overflow-y-auto px-5 py-3">
+          <Shortcut label="Add Text" value="T" />
+          <Shortcut label="Cover / Whiteout" value="C" />
+          <Shortcut label="Highlight" value="H" />
+          <Shortcut label="Image" value="I" />
+          <Shortcut label="Signature" value="S" />
+          <Shortcut label="Select Tool" value="V" />
+          <Shortcut label="Done / Deselect" value="Esc" />
+          <Shortcut label="Delete Selected" value="Del" />
+          <Shortcut label="Undo" value="⌘ / Ctrl + Z" />
+          <Shortcut label="Redo" value="⌘ / Ctrl + Y" />
+          <Shortcut label="Redo" value="⌘ / Ctrl + Shift + Z" />
+          <Shortcut label="Download" value="⌘ / Ctrl + D" />
+        </div>
       </div>
     </aside>
   );
@@ -181,7 +193,8 @@ function TextProperties({
 
         <div className="flex flex-wrap gap-3">
           {textColors.map((color) => {
-            const active = selectedElement.color === color;
+            const active =
+              selectedElement.color === color;
 
             return (
               <button
@@ -270,33 +283,10 @@ function CoverProperties({
         </div>
       </div>
 
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-2">
-          SIZE
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <NumberInput
-            label="Width"
-            value={Math.round(selectedElement.width || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                width: value
-              })
-            }
-          />
-
-          <NumberInput
-            label="Height"
-            value={Math.round(selectedElement.height || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                height: value
-              })
-            }
-          />
-        </div>
-      </div>
+      <SizeFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
 
       <PositionFields
         selectedElement={selectedElement}
@@ -305,6 +295,163 @@ function CoverProperties({
 
       <DeleteButton
         label="Delete Cover"
+        onDeleteSelected={onDeleteSelected}
+      />
+    </div>
+  );
+}
+
+function HighlightProperties({
+  selectedElement,
+  onUpdateSelected,
+  onDeleteSelected
+}) {
+  return (
+    <div className="space-y-6">
+      <SelectedBadge label="Highlight" />
+
+      <div>
+        <p className="text-xs font-bold text-[#6b7280] mb-3">
+          HIGHLIGHT COLOR
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          {[
+            "#facc15",
+            "#fde047",
+            "#86efac",
+            "#93c5fd",
+            "#fca5a5",
+            "#d8b4fe"
+          ].map((color) => {
+            const active =
+              selectedElement.color === color;
+
+            return (
+              <button
+                key={color}
+                onClick={() =>
+                  onUpdateSelected({
+                    color
+                  })
+                }
+                className={`
+                  h-8 w-8 rounded-full border transition
+                  ${
+                    active
+                      ? "ring-2 ring-blue-600 ring-offset-2"
+                      : "hover:scale-105"
+                  }
+                `}
+                style={{
+                  backgroundColor: color,
+                  borderColor: color
+                }}
+              />
+            );
+          })}
+
+          <input
+            type="color"
+            value={selectedElement.color || "#facc15"}
+            onChange={(event) =>
+              onUpdateSelected({
+                color: event.target.value
+              })
+            }
+            className="h-8 w-10 cursor-pointer rounded border border-[#d1d5db] bg-white p-1"
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-[#6b7280] mb-2">
+          OPACITY
+        </p>
+
+        <input
+          type="range"
+          min="0.1"
+          max="1"
+          step="0.05"
+          value={selectedElement.opacity ?? 0.35}
+          onChange={(event) =>
+            onUpdateSelected({
+              opacity: Number(event.target.value)
+            })
+          }
+          className="w-full"
+        />
+
+        <p className="mt-1 text-xs text-[#6b7280]">
+          {Math.round(
+            (selectedElement.opacity ?? 0.35) * 100
+          )}
+          %
+        </p>
+      </div>
+
+      <SizeFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
+
+      <PositionFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
+
+      <DeleteButton
+        label="Delete Highlight"
+        onDeleteSelected={onDeleteSelected}
+      />
+    </div>
+  );
+}
+
+function ImageProperties({
+  selectedElement,
+  onUpdateSelected,
+  onDeleteSelected
+}) {
+  const isSign = selectedElement.type === "sign";
+
+  return (
+    <div className="space-y-6">
+      <SelectedBadge
+        label={isSign ? "Signature" : "Image"}
+      />
+
+      <div>
+        <p className="text-xs font-bold text-[#6b7280] mb-2">
+          PREVIEW
+        </p>
+
+        <div className="rounded-lg border border-[#e5e7eb] bg-[#f9fafb] p-3">
+          <img
+            src={selectedElement.src}
+            alt={selectedElement.type}
+            className="max-h-32 w-full object-contain"
+          />
+        </div>
+      </div>
+
+      <SizeFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
+
+      <PositionFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
+
+      <DeleteButton
+        label={
+          isSign
+            ? "Delete Signature"
+            : "Delete Image"
+        }
         onDeleteSelected={onDeleteSelected}
       />
     </div>
@@ -320,6 +467,41 @@ function SelectedBadge({ label }) {
 
       <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
         {label}
+      </div>
+    </div>
+  );
+}
+
+function SizeFields({
+  selectedElement,
+  onUpdateSelected
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold text-[#6b7280] mb-2">
+        SIZE
+      </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <NumberInput
+          label="Width"
+          value={Math.round(selectedElement.width || 0)}
+          onChange={(value) =>
+            onUpdateSelected({
+              width: value
+            })
+          }
+        />
+
+        <NumberInput
+          label="Height"
+          value={Math.round(selectedElement.height || 0)}
+          onChange={(value) =>
+            onUpdateSelected({
+              height: value
+            })
+          }
+        />
       </div>
     </div>
   );
@@ -398,216 +580,17 @@ function DeleteButton({
   );
 }
 
-
-
-function HighlightProperties({
-  selectedElement,
-  onUpdateSelected,
-  onDeleteSelected
-}) {
-  return (
-    <div className="space-y-6">
-      <SelectedBadge label="Highlight" />
-
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-3">
-          HIGHLIGHT COLOR
-        </p>
-
-        <div className="flex flex-wrap gap-3">
-          {[
-            "#facc15",
-            "#fde047",
-            "#86efac",
-            "#93c5fd",
-            "#fca5a5",
-            "#d8b4fe"
-          ].map((color) => {
-            const active = selectedElement.color === color;
-
-            return (
-              <button
-                key={color}
-                onClick={() =>
-                  onUpdateSelected({
-                    color
-                  })
-                }
-                className={`
-                  h-8 w-8 rounded-full border transition
-                  ${
-                    active
-                      ? "ring-2 ring-blue-600 ring-offset-2"
-                      : "hover:scale-105"
-                  }
-                `}
-                style={{
-                  backgroundColor: color,
-                  borderColor: color
-                }}
-              />
-            );
-          })}
-
-          <input
-            type="color"
-            value={selectedElement.color || "#facc15"}
-            onChange={(event) =>
-              onUpdateSelected({
-                color: event.target.value
-              })
-            }
-            className="h-8 w-10 cursor-pointer rounded border border-[#d1d5db] bg-white p-1"
-          />
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-2">
-          OPACITY
-        </p>
-
-        <input
-          type="range"
-          min="0.1"
-          max="1"
-          step="0.05"
-          value={selectedElement.opacity ?? 0.35}
-          onChange={(event) =>
-            onUpdateSelected({
-              opacity: Number(event.target.value)
-            })
-          }
-          className="w-full"
-        />
-
-        <p className="mt-1 text-xs text-[#6b7280]">
-          {Math.round((selectedElement.opacity ?? 0.35) * 100)}%
-        </p>
-      </div>
-
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-2">
-          SIZE
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <NumberInput
-            label="Width"
-            value={Math.round(selectedElement.width || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                width: value
-              })
-            }
-          />
-
-          <NumberInput
-            label="Height"
-            value={Math.round(selectedElement.height || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                height: value
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <PositionFields
-        selectedElement={selectedElement}
-        onUpdateSelected={onUpdateSelected}
-      />
-
-      <DeleteButton
-        label="Delete Highlight"
-        onDeleteSelected={onDeleteSelected}
-      />
-    </div>
-  );
-}
-
-function ImageProperties({
-  selectedElement,
-  onUpdateSelected,
-  onDeleteSelected
-}) {
-  const isSign = selectedElement.type === "sign";
-
-  return (
-    <div className="space-y-6">
-      <SelectedBadge
-        label={isSign ? "Signature" : "Image"}
-      />
-
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-2">
-          PREVIEW
-        </p>
-
-        <div className="rounded-lg border border-[#e5e7eb] bg-[#f9fafb] p-3">
-          <img
-            src={selectedElement.src}
-            alt={selectedElement.type}
-            className="max-h-32 w-full object-contain"
-          />
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-bold text-[#6b7280] mb-2">
-          SIZE
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          <NumberInput
-            label="Width"
-            value={Math.round(selectedElement.width || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                width: value
-              })
-            }
-          />
-
-          <NumberInput
-            label="Height"
-            value={Math.round(selectedElement.height || 0)}
-            onChange={(value) =>
-              onUpdateSelected({
-                height: value
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <PositionFields
-        selectedElement={selectedElement}
-        onUpdateSelected={onUpdateSelected}
-      />
-
-      <DeleteButton
-        label={
-          isSign
-            ? "Delete Signature"
-            : "Delete Image"
-        }
-        onDeleteSelected={onDeleteSelected}
-      />
-    </div>
-  );
-}
-
 function Shortcut({
   label,
   value
 }) {
   return (
-    <div className="flex items-center justify-between text-sm text-[#6b7280] mb-1">
-      <span>{label}</span>
+    <div className="flex items-center justify-between gap-3 text-sm text-[#6b7280] mb-2">
+      <span className="min-w-0 truncate">
+        {label}
+      </span>
 
-      <span className="font-semibold text-[#374151]">
+      <span className="shrink-0 rounded-md border border-[#e5e7eb] bg-white px-2 py-0.5 text-xs font-semibold text-[#374151]">
         {value}
       </span>
     </div>
