@@ -52,10 +52,20 @@ const tools = [
 export default function ToolBar({
   activeTool,
   setActiveTool,
+  onUpload,
   onDone,
   onUndo,
   onRedo
 }) {
+  const handleToolClick = (toolId) => {
+    if (toolId === "upload") {
+      onUpload?.();
+      return;
+    }
+
+    setActiveTool(toolId);
+  };
+
   return (
     <div className="h-12 border-b border-[#e5e7eb] bg-white flex items-center px-4">
       <div className="flex items-center gap-2 pr-4 border-r border-[#e5e7eb]">
@@ -84,7 +94,7 @@ export default function ToolBar({
           return (
             <button
               key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
+              onClick={() => handleToolClick(tool.id)}
               className={`
                 h-9 px-3 rounded-md flex items-center gap-2 text-sm font-medium transition
                 ${

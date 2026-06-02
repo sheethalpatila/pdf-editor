@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState
 } from "react";
 
@@ -18,12 +19,16 @@ import {
   getFileEdits,
   getAllPdfFiles,
   getPdfFile,
-  setLastOpenedPdf
+  setLastOpenedPdf,
+  clearAllPdfFiles,
+  deletePdfFileById
 } from "./utils/localDb";
 
 import { exportEditedPdf } from "./utils/exportPdf";
 
 export default function App() {
+  const uploadInputRef = useRef(null);
+
   const [fileRecord, setFileRecord] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
 
@@ -86,6 +91,23 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [edits, fileRecord?.id]);
 
+  const resetCurrentFile = () => {
+    if (fileUrl) {
+      URL.revokeObjectURL(fileUrl);
+    }
+
+    setFileRecord(null);
+    setFileUrl(null);
+    setEditsState([]);
+    setUndoStack([]);
+    setRedoStack([]);
+    setPageViewports({});
+    setSelectedPage(1);
+    setSelectedElement(null);
+    setNumPages(0);
+    setActiveTool("upload");
+  };
+
   const restoreLastFile = async () => {
     const files = await getAllPdfFiles();
 
@@ -108,6 +130,18 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
+  };
+
+  const handleOpenUploadPicker = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleUploadInputChange = async (event) => {
+    const uploadedFile = event.target.files?.[0];
+
+    await handleFileSelect(uploadedFile);
+
+    event.target.value = "";
   };
 
   const handleFileSelect = async (uploadedFile) => {
@@ -164,9 +198,32 @@ export default function App() {
     setActiveTool("select");
   };
 
+  const handleDeletePreviousFile = async (fileId) => {
+    await deletePdfFileById(fileId);
+
+    const files = await getAllPdfFiles();
+
+    setRecentFiles(files);
+
+    if (fileRecord?.id === fileId) {
+      resetCurrentFile();
+    }
+  };
+
+  const handleClearAllFiles = async () => {
+    const confirmed = window.confirm(
+      "Delete all locally saved PDFs and edits from this browser?"
+    );
+
+    if (!confirmed) return;
+
+    await clearAllPdfFiles();
+
+    setRecentFiles([]);
+    resetCurrentFile();
+  };
+
   const handleDownload = async () => {
-      console.log("Exporting edits:", edits);
-  console.log("Page viewports:", pageViewports);
     await exportEditedPdf({
       fileRecord,
       edits,
@@ -344,17 +401,28 @@ export default function App() {
 
   return (
     <div className="h-screen overflow-hidden bg-[#f3f4f6] text-[#111827]">
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleUploadInputChange}
+        className="hidden"
+      />
+
       <TopBar
         hasFile={Boolean(fileRecord)}
         fileName={fileRecord?.name}
         recentFiles={recentFiles}
         onOpenPreviousFile={handleOpenPreviousFile}
+        onDeletePreviousFile={handleDeletePreviousFile}
+        onClearAllFiles={handleClearAllFiles}
         onDownload={handleDownload}
       />
 
       <ToolBar
         activeTool={activeTool}
         setActiveTool={setActiveTool}
+        onUpload={handleOpenUploadPicker}
         onDone={handleDone}
         onUndo={handleUndo}
         onRedo={handleRedo}

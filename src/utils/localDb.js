@@ -139,3 +139,30 @@ export async function setLastOpenedPdf(fileId) {
     value: fileId
   });
 }
+
+export async function clearAllPdfFiles() {
+  const db = await getDb();
+
+  await db.clear(STORE_FILES);
+  await db.clear(STORE_EDITS);
+  await db.delete(STORE_SETTINGS, "lastOpenedFileId");
+}
+
+export async function deletePdfFileById(fileId) {
+  const db = await getDb();
+
+  await db.delete(STORE_FILES, fileId);
+  await db.delete(STORE_EDITS, fileId);
+
+  const setting = await db.get(
+    STORE_SETTINGS,
+    "lastOpenedFileId"
+  );
+
+  if (setting?.value === fileId) {
+    await db.delete(
+      STORE_SETTINGS,
+      "lastOpenedFileId"
+    );
+  }
+}

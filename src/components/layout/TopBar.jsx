@@ -7,7 +7,9 @@ import {
   Search,
   Printer,
   Save,
-  Download
+  Download,
+  Trash2,
+  X
 } from "lucide-react";
 
 export default function TopBar({
@@ -15,6 +17,8 @@ export default function TopBar({
   fileName,
   recentFiles = [],
   onOpenPreviousFile,
+  onDeletePreviousFile,
+  onClearAllFiles,
   onDownload
 }) {
   const [open, setOpen] = useState(false);
@@ -44,30 +48,72 @@ export default function TopBar({
           </button>
 
           {open && (
-            <div className="absolute left-0 top-12 z-50 w-[330px] rounded-xl border border-[#e5e7eb] bg-white shadow-xl overflow-hidden">
+            <div className="absolute left-0 top-12 z-50 w-[360px] rounded-xl border border-[#e5e7eb] bg-white shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#e5e7eb] bg-[#f9fafb]">
+                <p className="text-sm font-bold text-[#111827]">
+                  Local files
+                </p>
+
+                <button
+                  onClick={() => {
+                    onClearAllFiles?.();
+                    setOpen(false);
+                  }}
+                  disabled={recentFiles.length === 0}
+                  className={`
+                    flex items-center gap-1 text-xs font-bold
+                    ${
+                      recentFiles.length === 0
+                        ? "text-[#9ca3af] cursor-not-allowed"
+                        : "text-red-600 hover:text-red-700"
+                    }
+                  `}
+                >
+                  <Trash2 size={14} />
+                  Clear all
+                </button>
+              </div>
+
               {recentFiles.length === 0 ? (
                 <div className="p-4 text-sm text-[#6b7280]">
                   No previous files
                 </div>
               ) : (
-                recentFiles.map((file) => (
-                  <button
-                    key={file.id}
-                    onClick={() => {
-                      onOpenPreviousFile(file.id);
-                      setOpen(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-[#f9fafb] border-b border-[#f3f4f6]"
-                  >
-                    <p className="truncate text-sm font-semibold text-[#111827]">
-                      {file.name}
-                    </p>
+                <div className="max-h-[340px] overflow-y-auto">
+                  {recentFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 border-b border-[#f3f4f6] hover:bg-[#f9fafb]"
+                    >
+                      <button
+                        onClick={() => {
+                          onOpenPreviousFile(file.id);
+                          setOpen(false);
+                        }}
+                        className="min-w-0 flex-1 px-4 py-3 text-left"
+                      >
+                        <p className="truncate text-sm font-semibold text-[#111827]">
+                          {file.name}
+                        </p>
 
-                    <p className="text-xs text-[#6b7280]">
-                      {Math.round(file.size / 1024)} KB
-                    </p>
-                  </button>
-                ))
+                        <p className="text-xs text-[#6b7280]">
+                          {Math.round(file.size / 1024)} KB
+                        </p>
+                      </button>
+
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeletePreviousFile?.(file.id);
+                        }}
+                        title="Delete this local file"
+                        className="mr-3 h-8 w-8 rounded-md flex items-center justify-center text-[#9ca3af] hover:bg-red-50 hover:text-red-600"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
