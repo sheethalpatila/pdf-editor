@@ -1,11 +1,22 @@
-import { useRef } from "react";
+import {
+  useEffect,
+  useRef,
+  useState
+} from "react";
 
-import { Document, Page, pdfjs } from "react-pdf";
+import {
+  Document,
+  Page,
+  pdfjs
+} from "react-pdf";
 
 import TextOverlay from "../editor/TextOverlay";
 import CoverOverlay from "../editor/CoverOverlay";
 import HighlightOverlay from "../editor/HighlightOverlay";
 import ImageOverlay from "../editor/ImageOverlay";
+import DetectedTextLayer from "../editor/DetectedTextLayer";
+
+import { extractPdfTextItems } from "../../utils/extractPdfText";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -28,9 +39,14 @@ export default function EditorScreen({
   setNumPages,
   edits,
   setEdits,
-  setPageViewports
+  setPageViewports,
+  searchResults = [],
+  activeSearchIndex = -1
 }) {
   const pageWrapperRef = useRef(null);
+
+  const [detectedTextItems, setDetectedTextItems] =
+    useState([]);
 
   const handleLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -44,6 +60,56 @@ export default function EditorScreen({
     (edit) => edit.pageNumber === selectedPage
   );
 
+  const pageSearchResults = searchResults.filter(
+    (result) => result.pageNumber === selectedPage
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDetectedText() {
+      if (
+        !fileUrl ||
+        !selectedPage ||
+        activeTool !== "editText"
+      ) {
+        setDetectedTextItems([]);
+        return;
+      }
+
+      try {
+        const items = await extractPdfTextItems({
+          fileUrl,
+          pageNumber: selectedPage,
+          renderWidth: PAGE_WIDTH
+        });
+
+        if (!cancelled) {
+          setDetectedTextItems(items);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to extract PDF text:",
+          error
+        );
+
+        if (!cancelled) {
+          setDetectedTextItems([]);
+        }
+      }
+    }
+
+    loadDetectedText();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    fileUrl,
+    selectedPage,
+    activeTool
+  ]);
+
   const fileToDataUrl = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -55,7 +121,11 @@ export default function EditorScreen({
     });
   };
 
-  const addImageLikeEdit = async ({ x, y, type }) => {
+  const addImageLikeEdit = async ({
+    x,
+    y,
+    type
+  }) => {
     const input = document.createElement("input");
 
     input.type = "file";
@@ -252,9 +322,9 @@ export default function EditorScreen({
       const updated = prev.map((edit) =>
         edit.id === id
           ? {
-              ...edit,
-              ...updates
-            }
+            ...edit,
+            ...updates
+          }
           : edit
       );
 
@@ -295,10 +365,83 @@ export default function EditorScreen({
     });
   };
 
+  const handleDetectedTextClick = (item) => {
+    const paddingX = 3;
+    const paddingY = 2;
+
+    const coverEdit = {
+      id: crypto.randomUUID(),
+      type: "cover",
+      pageNumber: selectedPage,
+      x: item.x - paddingX,
+      y: item.y - paddingY,
+      width: item.width + paddingX * 2,
+      height: item.height + paddingY * 2,
+      color: "#ffffff",
+      selected: false,
+      source: "detectedText"
+    };
+
+    const replacementText = {
+      id: crypto.randomUUID(),
+      type: "text",
+      pageNumber: selectedPage,
+      x: item.x,
+      y: item.y,
+      width: item.width,
+      height: Math.max(
+        item.height + 8,
+        (item.fontSize || 12) * 1.4
+      ),
+      text: item.text,
+      originalText: item.text,
+      fontSize: Math.max(
+        8,
+        Math.round((item.fontSize || 12) * 0.95)
+      ),
+      color: item.color || "#111827",
+      fontWeight: item.fontWeight || "normal",
+      fontStyle: item.fontStyle || "normal",
+      fontFamily: item.fontFamily || "Times New Roman",
+      selected: true,
+      source: "detectedText"
+    };
+
+    setEdits((prev) => {
+      const updated = [
+        ...prev.map((edit) => ({
+          ...edit,
+          selected: false
+        })),
+        coverEdit,
+        replacementText
+      ];
+
+      setSelectedElement(replacementText);
+      setActiveTool("select");
+
+      return updated;
+    });
+  };
+
   return (
     <div className="h-full overflow-auto p-8">
       <div className="mx-auto max-w-5xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-[#111827]">
+              {fileRecord?.name}
+            </h2>
 
+            <p className="text-xs text-[#6b7280]">
+              Active tool: {activeTool}
+            </p>
+          </div>
+
+          <p className="text-xs font-bold text-[#6b7280]">
+            Page {selectedPage}
+          </p>
+        </div>
 
         <div className="flex justify-center pb-20">
           <Document
@@ -320,13 +463,13 @@ export default function EditorScreen({
               onClick={handlePageClick}
               className={`
                 relative inline-block bg-white shadow-xl
-                ${
-                  activeTool === "text"
-                    ? "cursor-text"
-                    : activeTool === "cover" ||
-                      activeTool === "highlight" ||
-                      activeTool === "image" ||
-                      activeTool === "sign"
+                ${activeTool === "text"
+                  ? "cursor-text"
+                  : activeTool === "cover" ||
+                    activeTool === "highlight" ||
+                    activeTool === "image" ||
+                    activeTool === "sign" ||
+                    activeTool === "editText"
                     ? "cursor-crosshair"
                     : "cursor-default"
                 }
@@ -395,10 +538,59 @@ export default function EditorScreen({
 
                 return null;
               })}
+
+              <SearchResultLayer
+                results={pageSearchResults}
+                activeSearchResult={
+                  searchResults[activeSearchIndex]
+                }
+              />
+
+              <DetectedTextLayer
+                items={detectedTextItems}
+                active={activeTool === "editText"}
+                onTextClick={handleDetectedTextClick}
+              />
             </div>
           </Document>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SearchResultLayer({
+  results,
+  activeSearchResult
+}) {
+  if (!results.length) return null;
+
+  return (
+    <div className="absolute inset-0 z-25 pointer-events-none">
+      {results.map((result) => {
+        const active =
+          activeSearchResult?.searchId === result.searchId;
+
+        return (
+          <div
+            key={result.searchId}
+            className={`
+              absolute rounded-sm border
+              ${
+                active
+                  ? "border-orange-500 bg-orange-300/50"
+                  : "border-yellow-500 bg-yellow-300/35"
+              }
+            `}
+            style={{
+              left: result.x,
+              top: result.y,
+              width: result.width,
+              height: result.height
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

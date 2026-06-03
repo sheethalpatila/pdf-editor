@@ -4,7 +4,22 @@ import {
   rgb
 } from "pdf-lib";
 
+import fontkit from "@pdf-lib/fontkit";
 import { saveAs } from "file-saver";
+
+import { getExportFontKey } from "./fontResolver";
+
+const CUSTOM_FONT_URLS = {
+  "serif-regular": "/fonts/NotoSerif-Regular.ttf",
+  "serif-bold": "/fonts/NotoSerif-Bold.ttf",
+  "serif-italic": "/fonts/NotoSerif-Italic.ttf",
+  "serif-bold-italic": "/fonts/NotoSerif-BoldItalic.ttf",
+
+  "sans-regular": "/fonts/NotoSans-Regular.ttf",
+  "sans-bold": "/fonts/NotoSans-Bold.ttf",
+  "sans-italic": "/fonts/NotoSans-Italic.ttf",
+  "sans-bold-italic": "/fonts/NotoSans-BoldItalic.ttf"
+};
 
 function hexToRgb(hex = "#111827") {
   const cleanHex = hex.replace("#", "");
@@ -79,7 +94,158 @@ function getFallbackViewport(page) {
   };
 }
 
-export async function exportEditedPdf({
+async function tryEmbedCustomFont({
+  pdfDoc,
+  fontUrl
+}) {
+  try {
+    if (!fontUrl) return null;
+
+    const response = await fetch(fontUrl);
+
+    if (!response.ok) return null;
+
+    const fontBytes = await response.arrayBuffer();
+
+    return await pdfDoc.embedFont(fontBytes);
+  } catch {
+    return null;
+  }
+}
+
+async function buildFonts(pdfDoc) {
+  pdfDoc.registerFontkit(fontkit);
+
+  const standardFonts = {
+    helvetica: await pdfDoc.embedFont(StandardFonts.Helvetica),
+    helveticaBold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
+    helveticaItalic: await pdfDoc.embedFont(StandardFonts.HelveticaOblique),
+    helveticaBoldItalic: await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique),
+
+    times: await pdfDoc.embedFont(StandardFonts.TimesRoman),
+    timesBold: await pdfDoc.embedFont(StandardFonts.TimesRomanBold),
+    timesItalic: await pdfDoc.embedFont(StandardFonts.TimesRomanItalic),
+    timesBoldItalic: await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic),
+
+    courier: await pdfDoc.embedFont(StandardFonts.Courier),
+    courierBold: await pdfDoc.embedFont(StandardFonts.CourierBold),
+    courierItalic: await pdfDoc.embedFont(StandardFonts.CourierOblique),
+    courierBoldItalic: await pdfDoc.embedFont(StandardFonts.CourierBoldOblique)
+  };
+
+  const customFonts = {};
+
+  for (const [key, url] of Object.entries(CUSTOM_FONT_URLS)) {
+    const embedded = await tryEmbedCustomFont({
+      pdfDoc,
+      fontUrl: url
+    });
+
+    if (embedded) {
+      customFonts[key] = embedded;
+    }
+  }
+
+  return {
+    standardFonts,
+    customFonts
+  };
+}
+
+function chooseFont({
+  edit,
+  standardFonts,
+  customFonts
+}) {
+  const key = getExportFontKey(edit);
+
+  if (customFonts[key]) {
+    return customFonts[key];
+  }
+
+  const isBold = edit.fontWeight === "bold";
+  const isItalic = edit.fontStyle === "italic";
+
+  const family = String(edit.fontFamily || "").toLowerCase();
+
+  const isTimes =
+    family.includes("times") ||
+    family.includes("serif") ||
+    family.includes("roman");
+
+  const isCourier =
+    family.includes("courier") ||
+    family.includes("mono");
+
+  if (isTimes) {
+    if (isBold && isItalic) return standardFonts.timesBoldItalic;
+    if (isBold) return standardFonts.timesBold;
+    if (isItalic) return standardFonts.timesItalic;
+    return standardFonts.times;
+  }
+
+  if (isCourier) {
+    if (isBold && isItalic) return standardFonts.courierBoldItalic;
+    if (isBold) return standardFonts.courierBold;
+    if (isItalic) return standardFonts.courierItalic;
+    return standardFonts.courier;
+  }
+
+  if (isBold && isItalic) return standardFonts.helveticaBoldItalic;
+  if (isBold) return standardFonts.helveticaBold;
+  if (isItalic) return standardFonts.helveticaItalic;
+
+  return standardFonts.helvetica;
+}
+
+function wrapTextByWidth({
+  text,
+  font,
+  fontSize,
+  maxWidth
+}) {
+  const paragraphs = String(text || "").split("\n");
+  const lines = [];
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (words.length === 0) {
+      lines.push("");
+      continue;
+    }
+
+    let currentLine = "";
+
+    for (const word of words) {
+      const testLine = currentLine
+        ? `${currentLine} ${word}`
+        : word;
+
+      const width = font.widthOfTextAtSize(
+        testLine,
+        fontSize
+      );
+
+      if (width <= maxWidth || !currentLine) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  }
+
+  return lines;
+}
+
+export async function createEditedPdfBlob({
   fileRecord,
   edits = [],
   pageViewports = {}
@@ -97,28 +263,19 @@ export async function exportEditedPdf({
       arrayBuffer
     );
 
-    const font = await pdfDoc.embedFont(
-      StandardFonts.Helvetica
-    );
+    const {
+      standardFonts,
+      customFonts
+    } = await buildFonts(pdfDoc);
 
     const pages = pdfDoc.getPages();
 
     const sortedEdits = [
-      ...edits.filter(
-        (edit) => edit.type === "cover"
-      ),
-      ...edits.filter(
-        (edit) => edit.type === "highlight"
-      ),
-      ...edits.filter(
-        (edit) => edit.type === "image"
-      ),
-      ...edits.filter(
-        (edit) => edit.type === "sign"
-      ),
-      ...edits.filter(
-        (edit) => edit.type === "text"
-      )
+      ...edits.filter((edit) => edit.type === "cover"),
+      ...edits.filter((edit) => edit.type === "highlight"),
+      ...edits.filter((edit) => edit.type === "image"),
+      ...edits.filter((edit) => edit.type === "sign"),
+      ...edits.filter((edit) => edit.type === "text")
     ];
 
     for (const edit of sortedEdits) {
@@ -150,9 +307,7 @@ export async function exportEditedPdf({
             Number(edit.width || 0) * scaleX,
           height:
             Number(edit.height || 0) * scaleY,
-          color: hexToRgb(
-            edit.color || "#ffffff"
-          )
+          color: hexToRgb(edit.color || "#ffffff")
         });
       }
 
@@ -166,46 +321,74 @@ export async function exportEditedPdf({
             Number(edit.width || 0) * scaleX,
           height:
             Number(edit.height || 0) * scaleY,
-          color: hexToRgb(
-            edit.color || "#facc15"
-          ),
+          color: hexToRgb(edit.color || "#facc15"),
           opacity: Number(edit.opacity ?? 0.35)
         });
       }
 
       if (edit.type === "image" || edit.type === "sign") {
-  if (!edit.src) continue;
+        if (!edit.src) continue;
 
-  try {
-    const imageBytes = await convertImageToPngBytes(edit.src);
+        try {
+          const imageBytes =
+            await convertImageToPngBytes(edit.src);
 
-    const embeddedImage = await pdfDoc.embedPng(imageBytes);
+          const embeddedImage =
+            await pdfDoc.embedPng(imageBytes);
 
-    page.drawImage(embeddedImage, {
-      x,
-      y: y - Number(edit.height || 0) * scaleY,
-      width: Number(edit.width || 0) * scaleX,
-      height: Number(edit.height || 0) * scaleY
-    });
-  } catch (error) {
-    console.error("Failed to embed image:", error);
-  }
-}
+          page.drawImage(embeddedImage, {
+            x,
+            y:
+              y -
+              Number(edit.height || 0) * scaleY,
+            width:
+              Number(edit.width || 0) * scaleX,
+            height:
+              Number(edit.height || 0) * scaleY
+          });
+        } catch (error) {
+          console.error(
+            "Failed to embed image:",
+            error
+          );
+        }
+      }
 
       if (edit.type === "text") {
-        page.drawText(edit.text || "", {
-          x,
-          y:
-            y -
-            Number(edit.fontSize || 18) *
-              scaleY,
-          size:
-            Number(edit.fontSize || 18) *
-            scaleX,
+        const font = chooseFont({
+          edit,
+          standardFonts,
+          customFonts
+        });
+
+        const fontSize =
+          Number(edit.fontSize || 18) * scaleX;
+
+        const maxWidth =
+          Number(edit.width || 180) * scaleX;
+
+        const lineHeight = fontSize * 1.15;
+
+        const lines = wrapTextByWidth({
+          text: edit.text || "",
           font,
-          color: hexToRgb(
-            edit.color || "#111827"
-          )
+          fontSize,
+          maxWidth
+        });
+
+        lines.forEach((line, index) => {
+          page.drawText(line, {
+            x,
+            y:
+              y -
+              fontSize -
+              index * lineHeight,
+            size: fontSize,
+            font,
+            color: hexToRgb(
+              edit.color || "#111827"
+            )
+          });
         });
       }
     }
@@ -221,14 +404,67 @@ export async function exportEditedPdf({
         ?.replace(/\.pdf$/i, "") ||
       "edited";
 
-    saveAs(
+    return {
       blob,
-      `${cleanName}-edited.pdf`
-    );
+      fileName: `${cleanName}-edited.pdf`
+    };
   } catch (error) {
     console.error("Export PDF failed:", error);
     alert(
       "Export failed. Please check console for details."
     );
   }
+}
+
+export async function exportEditedPdf({
+  fileRecord,
+  edits = [],
+  pageViewports = {}
+}) {
+  const {
+    blob,
+    fileName
+  } = await createEditedPdfBlob({
+    fileRecord,
+    edits,
+    pageViewports
+  });
+
+  saveAs(blob, fileName);
+}
+
+export async function printEditedPdf({
+  fileRecord,
+  edits = [],
+  pageViewports = {}
+}) {
+  const { blob } = await createEditedPdfBlob({
+    fileRecord,
+    edits,
+    pageViewports
+  });
+
+  const blobUrl = URL.createObjectURL(blob);
+
+  const iframe = document.createElement("iframe");
+
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.src = blobUrl;
+
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(iframe);
+    }, 1000);
+  };
 }

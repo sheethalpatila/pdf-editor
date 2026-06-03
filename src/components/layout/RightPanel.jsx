@@ -14,8 +14,12 @@ const textColors = [
 ];
 
 const fontSizes = [
+  8,
+  9,
   10,
+  11,
   12,
+  13,
   14,
   16,
   18,
@@ -33,7 +37,6 @@ export default function RightPanel({
 }) {
   return (
     <aside className="h-full border-l border-[#e5e7eb] bg-white flex flex-col overflow-hidden">
-      {/* STICKY HEADER */}
       <div className="shrink-0 px-6 py-2 border-b border-[#e5e7eb] bg-white">
         <h2 className="text-md font-bold text-[#111827]">
           Properties
@@ -44,7 +47,6 @@ export default function RightPanel({
         </p>
       </div>
 
-      {/* SCROLLABLE PROPERTIES AREA */}
       <div className="min-h-0 flex-[1.4] overflow-y-auto p-6">
         {!selectedElement ? (
           <EmptyState />
@@ -78,7 +80,6 @@ export default function RightPanel({
         )}
       </div>
 
-      {/* STICKY SHORTCUTS AREA */}
       <div className="shrink-0 border-t border-[#e5e7eb] bg-[#f9fafb]">
         <div className="px-5 pt-4 pb-3 border-b border-[#e5e7eb] bg-[#f9fafb] flex items-center justify-between">
           <h3 className="text-sm font-bold text-[#111827]">
@@ -93,6 +94,7 @@ export default function RightPanel({
 
         <div className="max-h-[220px] overflow-y-auto px-5 py-3">
           <Shortcut label="Add Text" value="T" />
+          <Shortcut label="Edit PDF Text" value="E" />
           <Shortcut label="Cover / Whiteout" value="C" />
           <Shortcut label="Highlight" value="H" />
           <Shortcut label="Image" value="I" />
@@ -142,7 +144,13 @@ function TextProperties({
 }) {
   return (
     <div className="space-y-6">
-      <SelectedBadge label="Text Element" />
+      <SelectedBadge
+        label={
+          selectedElement.source === "detectedText"
+            ? "Edited PDF Text"
+            : "Text Element"
+        }
+      />
 
       <div>
         <label className="text-xs font-bold text-[#6b7280] mb-2 block">
@@ -184,6 +192,84 @@ function TextProperties({
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+  <label className="text-xs font-bold text-[#6b7280] mb-2 block">
+    FONT FAMILY
+  </label>
+
+  <select
+    value={selectedElement.fontFamily || "Times New Roman"}
+    onChange={(event) =>
+      onUpdateSelected({
+        fontFamily: event.target.value
+      })
+    }
+    className="h-10 w-full rounded-lg border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#111827] outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+  >
+    <option value="Times New Roman">
+      Times New Roman
+    </option>
+
+    <option value="Arial">
+      Arial / Helvetica
+    </option>
+
+    <option value="Courier New">
+      Courier New
+    </option>
+  </select>
+</div>
+
+      <div>
+        <p className="text-xs font-bold text-[#6b7280] mb-2">
+          STYLE
+        </p>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() =>
+              onUpdateSelected({
+                fontWeight:
+                  selectedElement.fontWeight === "bold"
+                    ? "normal"
+                    : "bold"
+              })
+            }
+            className={`
+              h-9 px-3 rounded-lg border text-sm font-bold
+              ${
+                selectedElement.fontWeight === "bold"
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-[#d1d5db] bg-white text-[#374151]"
+              }
+            `}
+          >
+            B
+          </button>
+
+          <button
+            onClick={() =>
+              onUpdateSelected({
+                fontStyle:
+                  selectedElement.fontStyle === "italic"
+                    ? "normal"
+                    : "italic"
+              })
+            }
+            className={`
+              h-9 px-3 rounded-lg border text-sm italic font-semibold
+              ${
+                selectedElement.fontStyle === "italic"
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-[#d1d5db] bg-white text-[#374151]"
+              }
+            `}
+          >
+            I
+          </button>
+        </div>
       </div>
 
       <div>
@@ -232,6 +318,11 @@ function TextProperties({
           />
         </div>
       </div>
+
+      <SizeFields
+        selectedElement={selectedElement}
+        onUpdateSelected={onUpdateSelected}
+      />
 
       <PositionFields
         selectedElement={selectedElement}

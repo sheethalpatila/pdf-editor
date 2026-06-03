@@ -4,9 +4,9 @@ import {
   FileText,
   FolderOpen,
   ChevronDown,
+  ChevronUp,
   Search,
   Printer,
-  Save,
   Download,
   Trash2,
   X
@@ -19,7 +19,15 @@ export default function TopBar({
   onOpenPreviousFile,
   onDeletePreviousFile,
   onClearAllFiles,
-  onDownload
+  onPrint,
+  onDownload,
+
+  searchQuery,
+  onSearchChange,
+  searchCount = 0,
+  activeSearchIndex = -1,
+  onSearchPrev,
+  onSearchNext
 }) {
   const [open, setOpen] = useState(false);
 
@@ -72,6 +80,7 @@ export default function TopBar({
                   Clear all
                 </button>
               </div>
+
               {recentFiles.length === 0 ? (
                 <div className="p-4 text-sm text-[#6b7280]">
                   No previous files
@@ -125,27 +134,64 @@ export default function TopBar({
       </div>
 
       <div className="flex items-center gap-5">
-        <div className="h-10 w-[220px] rounded-lg border border-[#d1d5db] bg-[#f9fafb] px-3 flex items-center gap-2">
+        <div className="h-10 w-[310px] rounded-lg border border-[#d1d5db] bg-[#f9fafb] px-3 flex items-center gap-2">
           <Search
             size={18}
             className="text-[#6b7280]"
           />
 
           <input
-            placeholder="Search..."
-            className="w-full bg-transparent text-sm outline-none placeholder:text-[#6b7280]"
+            value={searchQuery}
+            disabled={!hasFile}
+            onChange={(event) =>
+              onSearchChange(event.target.value)
+            }
+            placeholder="Search PDF..."
+            className="w-full bg-transparent text-sm outline-none placeholder:text-[#6b7280] disabled:cursor-not-allowed"
           />
+
+          {searchQuery && (
+            <span className="whitespace-nowrap text-xs font-semibold text-[#6b7280]">
+              {searchCount === 0
+                ? "0"
+                : `${activeSearchIndex + 1}/${searchCount}`}
+            </span>
+          )}
+
+          {searchQuery && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={searchCount === 0}
+                onClick={onSearchPrev}
+                className="h-6 w-6 rounded hover:bg-[#e5e7eb] disabled:text-[#cbd5e1]"
+              >
+                <ChevronUp size={15} />
+              </button>
+
+              <button
+                type="button"
+                disabled={searchCount === 0}
+                onClick={onSearchNext}
+                className="h-6 w-6 rounded hover:bg-[#e5e7eb] disabled:text-[#cbd5e1]"
+              >
+                <ChevronDown size={15} />
+              </button>
+            </div>
+          )}
         </div>
 
         <button
-          onClick={() => window.print()}
-          className="text-[#111827] hover:text-blue-600"
+          disabled={!hasFile}
+          onClick={onPrint}
+          className={`
+            ${hasFile
+              ? "text-[#111827] hover:text-blue-600"
+              : "text-[#9ca3af] cursor-not-allowed"
+            }
+          `}
         >
           <Printer size={22} />
-        </button>
-
-        <button className="text-[#111827] hover:text-blue-600">
-          <Save size={21} />
         </button>
 
         <button
