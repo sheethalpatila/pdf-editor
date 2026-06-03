@@ -1,4 +1,8 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState
+} from "react";
 
 import {
   FileText,
@@ -9,7 +13,9 @@ import {
   Printer,
   Download,
   Trash2,
-  X
+  X,
+  LogOut,
+  HelpCircle,
 } from "lucide-react";
 
 export default function TopBar({
@@ -21,8 +27,10 @@ export default function TopBar({
   onClearAllFiles,
   onPrint,
   onDownload,
+  onLogout,
+  onShowHelp,
 
-  searchQuery,
+  searchQuery = "",
   onSearchChange,
   searchCount = 0,
   activeSearchIndex = -1,
@@ -30,6 +38,48 @@ export default function TopBar({
   onSearchNext
 }) {
   const [open, setOpen] = useState(false);
+  const previousMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!open) return;
+
+      if (
+        previousMenuRef.current &&
+        !previousMenuRef.current.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleEscape
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape
+      );
+    };
+  }, [open]);
 
   return (
     <header className="h-16 border-b border-[#e5e7eb] bg-white px-5 flex items-center justify-between">
@@ -45,7 +95,10 @@ export default function TopBar({
           </h1>
         </div>
 
-        <div className="relative">
+        <div
+          ref={previousMenuRef}
+          className="relative"
+        >
           <button
             onClick={() => setOpen((prev) => !prev)}
             className="h-10 px-4 rounded-lg border border-[#d1d5db] bg-white text-[#111827] flex items-center gap-2 text-sm font-semibold hover:bg-[#f9fafb]"
@@ -70,9 +123,10 @@ export default function TopBar({
                   disabled={recentFiles.length === 0}
                   className={`
                     flex items-center gap-1 text-xs font-bold
-                    ${recentFiles.length === 0
-                      ? "text-[#9ca3af] cursor-not-allowed"
-                      : "text-red-600 hover:text-red-700"
+                    ${
+                      recentFiles.length === 0
+                        ? "text-[#9ca3af] cursor-not-allowed"
+                        : "text-red-600 hover:text-red-700"
                     }
                   `}
                 >
@@ -125,15 +179,9 @@ export default function TopBar({
             </div>
           )}
         </div>
-
-        {fileName && (
-          <div className="max-w-[260px] truncate rounded-lg bg-[#f3f4f6] px-3 py-2 text-sm font-medium text-[#374151]">
-            {fileName}
-          </div>
-        )}
       </div>
 
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-4">
         <div className="h-10 w-[310px] rounded-lg border border-[#d1d5db] bg-[#f9fafb] px-3 flex items-center gap-2">
           <Search
             size={18}
@@ -144,7 +192,7 @@ export default function TopBar({
             value={searchQuery}
             disabled={!hasFile}
             onChange={(event) =>
-              onSearchChange(event.target.value)
+              onSearchChange?.(event.target.value)
             }
             placeholder="Search PDF..."
             className="w-full bg-transparent text-sm outline-none placeholder:text-[#6b7280] disabled:cursor-not-allowed"
@@ -182,12 +230,22 @@ export default function TopBar({
         </div>
 
         <button
+          onClick={onShowHelp}
+          title="Help"
+          className="text-[#111827] hover:text-blue-600"
+        >
+          <HelpCircle size={22} />
+        </button>
+
+        <button
           disabled={!hasFile}
           onClick={onPrint}
+          title="Print PDF"
           className={`
-            ${hasFile
-              ? "text-[#111827] hover:text-blue-600"
-              : "text-[#9ca3af] cursor-not-allowed"
+            ${
+              hasFile
+                ? "text-[#111827] hover:text-blue-600"
+                : "text-[#9ca3af] cursor-not-allowed"
             }
           `}
         >
@@ -198,15 +256,24 @@ export default function TopBar({
           disabled={!hasFile}
           onClick={onDownload}
           className={`
-            h-10 px-6 rounded-lg text-sm font-bold flex items-center gap-2
-            ${hasFile
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
+            h-10 px-5 rounded-lg text-sm font-bold flex items-center gap-2
+            ${
+              hasFile
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed"
             }
           `}
         >
           <Download size={16} />
           Download
+        </button>
+
+        <button
+          onClick={onLogout}
+          className="h-10 px-3 rounded-lg border border-[#d1d5db] text-sm font-semibold text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+        >
+          <LogOut size={16} />
+          Logout
         </button>
       </div>
     </header>

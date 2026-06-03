@@ -30,6 +30,21 @@ const fontSizes = [
   40
 ];
 
+const fontFamilies = [
+  {
+    label: "Times New Roman",
+    value: "Times New Roman"
+  },
+  {
+    label: "Arial / Helvetica",
+    value: "Arial"
+  },
+  {
+    label: "Courier New",
+    value: "Courier New"
+  }
+];
+
 export default function RightPanel({
   selectedElement,
   onUpdateSelected,
@@ -106,6 +121,9 @@ export default function RightPanel({
           <Shortcut label="Redo" value="⌘ / Ctrl + Y" />
           <Shortcut label="Redo" value="⌘ / Ctrl + Shift + Z" />
           <Shortcut label="Download" value="⌘ / Ctrl + D" />
+          <Shortcut label="Zoom In" value="⌘ / Ctrl + +" />
+          <Shortcut label="Zoom Out" value="⌘ / Ctrl + -" />
+          <Shortcut label="Reset Zoom" value="⌘ / Ctrl + 0" />
         </div>
       </div>
     </aside>
@@ -195,32 +213,29 @@ function TextProperties({
       </div>
 
       <div>
-  <label className="text-xs font-bold text-[#6b7280] mb-2 block">
-    FONT FAMILY
-  </label>
+        <label className="text-xs font-bold text-[#6b7280] mb-2 block">
+          FONT FAMILY
+        </label>
 
-  <select
-    value={selectedElement.fontFamily || "Times New Roman"}
-    onChange={(event) =>
-      onUpdateSelected({
-        fontFamily: event.target.value
-      })
-    }
-    className="h-10 w-full rounded-lg border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#111827] outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-  >
-    <option value="Times New Roman">
-      Times New Roman
-    </option>
-
-    <option value="Arial">
-      Arial / Helvetica
-    </option>
-
-    <option value="Courier New">
-      Courier New
-    </option>
-  </select>
-</div>
+        <select
+          value={selectedElement.fontFamily || "Times New Roman"}
+          onChange={(event) =>
+            onUpdateSelected({
+              fontFamily: event.target.value
+            })
+          }
+          className="h-10 w-full rounded-lg border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#111827] outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+        >
+          {fontFamilies.map((font) => (
+            <option
+              key={font.value}
+              value={font.value}
+            >
+              {font.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div>
         <p className="text-xs font-bold text-[#6b7280] mb-2">

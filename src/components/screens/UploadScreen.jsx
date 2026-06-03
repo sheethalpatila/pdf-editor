@@ -44,6 +44,10 @@ export default function UploadScreen({
               Upload your PDF
             </h1>
 
+            <p className="mt-3 text-xs text-[#6b7280]">
+              Works best with text-based PDFs. Scanned or image-only PDFs are not supported yet.
+            </p>
+
             <p className="mt-3 text-sm leading-6 text-[#6b7280]">
               Drag and drop your PDF here, or choose a file from your computer
               to start editing.

@@ -51,3 +51,14 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+html,
+body,
+#root {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior: none;
+}

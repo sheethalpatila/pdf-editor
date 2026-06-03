@@ -10,6 +10,12 @@ import {
   pdfjs
 } from "react-pdf";
 
+import {
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
+} from "lucide-react";
+
 import TextOverlay from "../editor/TextOverlay";
 import CoverOverlay from "../editor/CoverOverlay";
 import HighlightOverlay from "../editor/HighlightOverlay";
@@ -41,12 +47,20 @@ export default function EditorScreen({
   setEdits,
   setPageViewports,
   searchResults = [],
-  activeSearchIndex = -1
+  activeSearchIndex = -1,
+  zoom = 1,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset
 }) {
   const pageWrapperRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
   const [detectedTextItems, setDetectedTextItems] =
     useState([]);
+
+  const [pageBaseHeight, setPageBaseHeight] =
+    useState(0);
 
   const handleLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -108,6 +122,13 @@ export default function EditorScreen({
     fileUrl,
     selectedPage,
     activeTool
+  ]);
+
+  useEffect(() => {
+    updateMainPageViewport();
+  }, [
+    zoom,
+    selectedPage
   ]);
 
   const fileToDataUrl = (file) => {
@@ -173,8 +194,11 @@ export default function EditorScreen({
     const pageContainer = event.currentTarget;
     const rect = pageContainer.getBoundingClientRect();
 
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const x =
+      (event.clientX - rect.left) / zoom;
+
+    const y =
+      (event.clientY - rect.top) / zoom;
 
     if (activeTool === "text") {
       const newText = {
@@ -183,9 +207,14 @@ export default function EditorScreen({
         pageNumber: selectedPage,
         x,
         y,
+        width: 180,
+        height: 32,
         text: "New text",
-        fontSize: 18,
+        fontSize: 14,
         color: "#111827",
+        fontFamily: "Arial",
+        fontWeight: "normal",
+        fontStyle: "normal",
         selected: true
       };
 
@@ -322,9 +351,9 @@ export default function EditorScreen({
       const updated = prev.map((edit) =>
         edit.id === id
           ? {
-            ...edit,
-            ...updates
-          }
+              ...edit,
+              ...updates
+            }
           : edit
       );
 
@@ -355,11 +384,16 @@ export default function EditorScreen({
       const rect =
         pageWrapperRef.current.getBoundingClientRect();
 
+      const baseWidth = rect.width / zoom;
+      const baseHeight = rect.height / zoom;
+
+      setPageBaseHeight(baseHeight);
+
       setPageViewports((prev) => ({
         ...prev,
         [selectedPage]: {
-          width: rect.width,
-          height: rect.height
+          width: baseWidth,
+          height: baseHeight
         }
       }));
     });
@@ -390,15 +424,12 @@ export default function EditorScreen({
       y: item.y,
       width: item.width,
       height: Math.max(
-        item.height + 8,
-        (item.fontSize || 12) * 1.4
+        item.height + 10,
+        (item.fontSize || 12) * 1.5
       ),
       text: item.text,
       originalText: item.text,
-      fontSize: Math.max(
-        8,
-        Math.round((item.fontSize || 12) * 0.95)
-      ),
+      fontSize: item.fontSize || 12,
       color: item.color || "#111827",
       fontWeight: item.fontWeight || "normal",
       fontStyle: item.fontStyle || "normal",
@@ -425,136 +456,232 @@ export default function EditorScreen({
   };
 
   return (
-    <div className="h-full overflow-auto p-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-[#111827]">
-              {fileRecord?.name}
-            </h2>
+    <div
+      ref={scrollContainerRef}
+      className="relative h-full overflow-auto overscroll-contain"
+      style={{
+        overscrollBehaviorX: "contain",
+        overscrollBehaviorY: "contain"
+      }}
+    >
+      <div className="min-h-full min-w-full px-8 py-8">
+        <div
+          className="mx-auto"
+          style={{
+            width: Math.max(
+              PAGE_WIDTH * zoom + 160,
+              PAGE_WIDTH + 160
+            )
+          }}
+        >
+          <div className="mb-4 flex items-center justify-between px-10">
+            <div>
+              <h2 className="text-sm font-bold text-[#111827]">
+                {fileRecord?.name}
+              </h2>
 
-            <p className="text-xs text-[#6b7280]">
-              Active tool: {activeTool}
+              <p className="text-xs text-[#6b7280]">
+                Active tool: {activeTool}
+              </p>
+            </div>
+
+            <p className="text-xs font-bold text-[#6b7280]">
+              Page {selectedPage}
             </p>
           </div>
 
-          <p className="text-xs font-bold text-[#6b7280]">
-            Page {selectedPage}
-          </p>
-        </div>
-
-        <div className="flex justify-center pb-20">
-          <Document
-            file={fileUrl}
-            onLoadSuccess={handleLoadSuccess}
-            loading={
-              <div className="rounded-lg bg-white p-6 shadow-sm text-sm text-[#6b7280]">
-                Loading PDF...
-              </div>
-            }
-            error={
-              <div className="rounded-lg bg-red-50 p-6 text-sm text-red-600">
-                Failed to load PDF.
-              </div>
-            }
+          <div
+            className="pb-24"
+            style={{
+              width: PAGE_WIDTH * zoom + 160,
+              minHeight: pageBaseHeight
+                ? pageBaseHeight * zoom + 100
+                : "auto",
+              paddingLeft: 80,
+              paddingRight: 80
+            }}
           >
-            <div
-              ref={pageWrapperRef}
-              onClick={handlePageClick}
-              className={`
-                relative inline-block bg-white shadow-xl
-                ${activeTool === "text"
-                  ? "cursor-text"
-                  : activeTool === "cover" ||
-                    activeTool === "highlight" ||
-                    activeTool === "image" ||
-                    activeTool === "sign" ||
-                    activeTool === "editText"
-                    ? "cursor-crosshair"
-                    : "cursor-default"
-                }
-              `}
+            <Document
+              file={fileUrl}
+              onLoadSuccess={handleLoadSuccess}
+              loading={
+                <div className="rounded-lg bg-white p-6 shadow-sm text-sm text-[#6b7280]">
+                  Loading PDF...
+                </div>
+              }
+              error={
+                <div className="rounded-lg bg-red-50 p-6 text-sm text-red-600">
+                  Failed to load PDF.
+                </div>
+              }
             >
-              <Page
-                pageNumber={selectedPage}
-                width={PAGE_WIDTH}
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-                onRenderSuccess={updateMainPageViewport}
-              />
+              <div
+                style={{
+                  width: PAGE_WIDTH * zoom,
+                  height: pageBaseHeight
+                    ? pageBaseHeight * zoom
+                    : "auto"
+                }}
+              >
+                <div
+                  ref={pageWrapperRef}
+                  onClick={handlePageClick}
+                  className={`
+                    relative inline-block bg-white shadow-xl
+                    ${
+                      activeTool === "text"
+                        ? "cursor-text"
+                        : activeTool === "cover" ||
+                          activeTool === "highlight" ||
+                          activeTool === "image" ||
+                          activeTool === "sign" ||
+                          activeTool === "editText"
+                        ? "cursor-crosshair"
+                        : "cursor-default"
+                    }
+                  `}
+                  style={{
+                    width: PAGE_WIDTH,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "top left"
+                  }}
+                >
+                  <Page
+                    pageNumber={selectedPage}
+                    width={PAGE_WIDTH}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    onRenderSuccess={updateMainPageViewport}
+                  />
 
-              {pageEdits.map((edit) => {
-                if (edit.type === "cover") {
-                  return (
-                    <CoverOverlay
-                      key={edit.id}
-                      edit={edit}
-                      selected={edit.selected}
-                      onSelect={handleSelect}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDelete}
-                    />
-                  );
-                }
+                  {pageEdits.map((edit) => {
+                    if (edit.type === "cover") {
+                      return (
+                        <CoverOverlay
+                          key={edit.id}
+                          edit={edit}
+                          selected={edit.selected}
+                          onSelect={handleSelect}
+                          onUpdate={handleUpdate}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
 
-                if (edit.type === "highlight") {
-                  return (
-                    <HighlightOverlay
-                      key={edit.id}
-                      edit={edit}
-                      selected={edit.selected}
-                      onSelect={handleSelect}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDelete}
-                    />
-                  );
-                }
+                    if (edit.type === "highlight") {
+                      return (
+                        <HighlightOverlay
+                          key={edit.id}
+                          edit={edit}
+                          selected={edit.selected}
+                          onSelect={handleSelect}
+                          onUpdate={handleUpdate}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
 
-                if (edit.type === "text") {
-                  return (
-                    <TextOverlay
-                      key={edit.id}
-                      edit={edit}
-                      selected={edit.selected}
-                      onSelect={handleSelect}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDelete}
-                    />
-                  );
-                }
+                    if (edit.type === "text") {
+                      return (
+                        <TextOverlay
+                          key={edit.id}
+                          edit={edit}
+                          selected={edit.selected}
+                          onSelect={handleSelect}
+                          onUpdate={handleUpdate}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
 
-                if (edit.type === "image" || edit.type === "sign") {
-                  return (
-                    <ImageOverlay
-                      key={edit.id}
-                      edit={edit}
-                      selected={edit.selected}
-                      onSelect={handleSelect}
-                      onUpdate={handleUpdate}
-                      onDelete={handleDelete}
-                    />
-                  );
-                }
+                    if (edit.type === "image" || edit.type === "sign") {
+                      return (
+                        <ImageOverlay
+                          key={edit.id}
+                          edit={edit}
+                          selected={edit.selected}
+                          onSelect={handleSelect}
+                          onUpdate={handleUpdate}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
 
-                return null;
-              })}
+                    return null;
+                  })}
 
-              <SearchResultLayer
-                results={pageSearchResults}
-                activeSearchResult={
-                  searchResults[activeSearchIndex]
-                }
-              />
+                  <SearchResultLayer
+                    results={pageSearchResults}
+                    activeSearchResult={
+                      searchResults[activeSearchIndex]
+                    }
+                  />
 
-              <DetectedTextLayer
-                items={detectedTextItems}
-                active={activeTool === "editText"}
-                onTextClick={handleDetectedTextClick}
-              />
-            </div>
-          </Document>
+                  <DetectedTextLayer
+                    items={detectedTextItems}
+                    active={activeTool === "editText"}
+                    onTextClick={handleDetectedTextClick}
+                  />
+                </div>
+              </div>
+            </Document>
+          </div>
         </div>
       </div>
+
+      <FloatingZoomControls
+        zoom={zoom}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+        onZoomReset={onZoomReset}
+      />
+    </div>
+  );
+}
+
+function FloatingZoomControls({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset
+}) {
+  const zoomPercent = Math.round(zoom * 100);
+
+  return (
+    <div className="fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center overflow-hidden rounded-full border border-[#d1d5db] bg-white shadow-xl">
+      <button
+        disabled={zoom <= 0.5}
+        onClick={onZoomOut}
+        title="Zoom out"
+        className="h-11 w-12 flex items-center justify-center text-[#374151] hover:bg-[#f3f4f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
+      >
+        <ZoomOut size={18} />
+      </button>
+
+      <button
+        onClick={onZoomReset}
+        title="Reset zoom"
+        className="h-11 min-w-[70px] px-3 text-sm font-bold text-[#111827] hover:bg-[#f3f4f6]"
+      >
+        {zoomPercent}%
+      </button>
+
+      <button
+        disabled={zoom >= 2}
+        onClick={onZoomIn}
+        title="Zoom in"
+        className="h-11 w-12 flex items-center justify-center text-[#374151] hover:bg-[#f3f4f6] disabled:text-[#cbd5e1] disabled:cursor-not-allowed"
+      >
+        <ZoomIn size={18} />
+      </button>
+
+      <button
+        onClick={onZoomReset}
+        title="Reset"
+        className="h-11 w-11 flex items-center justify-center border-l border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6]"
+      >
+        <RotateCcw size={16} />
+      </button>
     </div>
   );
 }
@@ -566,7 +693,7 @@ function SearchResultLayer({
   if (!results.length) return null;
 
   return (
-    <div className="absolute inset-0 z-25 pointer-events-none">
+    <div className="absolute inset-0 z-[25] pointer-events-none">
       {results.map((result) => {
         const active =
           activeSearchResult?.searchId === result.searchId;
