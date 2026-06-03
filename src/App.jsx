@@ -11,7 +11,8 @@ import LeftPagesSidebar from "./components/layout/LeftPagesSidebar";
 import RightPanel from "./components/layout/RightPanel";
 import UploadScreen from "./components/screens/UploadScreen";
 import EditorScreen from "./components/screens/EditorScreen";
-import { extractPdfTextItems } from "./utils/extractPdfText";
+import LocalLogin from "./components/common/LocalLogin";
+import FirstTimeNotice from "./components/common/FirstTimeNotice";
 
 import {
   savePdfFile,
@@ -30,8 +31,20 @@ import {
   printEditedPdf
 } from "./utils/exportPdf";
 
+import { extractPdfTextItems } from "./utils/extractPdfText";
+
 export default function App() {
   const uploadInputRef = useRef(null);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return (
+      localStorage.getItem("docprecision-local-login") ===
+      "true"
+    );
+  });
+
+  const [showFirstTimeNotice, setShowFirstTimeNotice] =
+    useState(false);
 
   const [fileRecord, setFileRecord] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
@@ -50,8 +63,10 @@ export default function App() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [activeSearchIndex, setActiveSearchIndex] =
+    useState(-1);
+
+  const [zoom, setZoom] = useState(1);
 
   const commitEdits = useCallback((updater) => {
     setEditsState((prev) => {
@@ -74,8 +89,18 @@ export default function App() {
   const setEdits = commitEdits;
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     restoreLastFile();
-  }, []);
+
+    const alreadySeen = localStorage.getItem(
+      "docprecision-first-time-notice-seen"
+    );
+
+    if (!alreadySeen) {
+      setShowFirstTimeNotice(true);
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     return () => {
@@ -98,7 +123,10 @@ export default function App() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [edits, fileRecord?.id]);
+  }, [
+    edits,
+    fileRecord?.id
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,8 +139,6 @@ export default function App() {
         setActiveSearchIndex(-1);
         return;
       }
-
-      setSearchLoading(true);
 
       try {
         const allMatches = [];
@@ -156,10 +182,6 @@ export default function App() {
           setSearchResults([]);
           setActiveSearchIndex(-1);
         }
-      } finally {
-        if (!cancelled) {
-          setSearchLoading(false);
-        }
       }
     };
 
@@ -175,29 +197,49 @@ export default function App() {
     numPages
   ]);
 
-  const handleSearchChange = (value) => {
-    setSearchQuery(value);
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true);
   };
 
-  const goToSearchResult = (index) => {
-    if (searchResults.length === 0) return;
-
-    const safeIndex =
-      (index + searchResults.length) % searchResults.length;
-
-    const result = searchResults[safeIndex];
-
-    setActiveSearchIndex(safeIndex);
-    setSelectedPage(result.pageNumber);
+  const handleLogout = () => {
+    localStorage.removeItem("docprecision-local-login");
+    setIsLoggedIn(false);
   };
 
-  const handleSearchNext = () => {
-    goToSearchResult(activeSearchIndex + 1);
+  const handleCloseFirstTimeNotice = () => {
+    localStorage.setItem(
+      "docprecision-first-time-notice-seen",
+      "true"
+    );
+
+    setShowFirstTimeNotice(false);
   };
 
-  const handleSearchPrev = () => {
-    goToSearchResult(activeSearchIndex - 1);
+  const handleShowHelp = () => {
+    setShowFirstTimeNotice(true);
   };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveSearchIndex(-1);
+  };
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) =>
+      Math.min(2, Number((prev + 0.1).toFixed(2)))
+    );
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) =>
+      Math.max(0.5, Number((prev - 0.1).toFixed(2)))
+    );
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    setZoom(1);
+  }, []);
 
   const resetCurrentFile = () => {
     if (fileUrl) {
@@ -214,9 +256,8 @@ export default function App() {
     setSelectedElement(null);
     setNumPages(0);
     setActiveTool("upload");
-    setSearchQuery("");
-    setSearchResults([]);
-    setActiveSearchIndex(-1);
+    setZoom(1);
+    clearSearch();
   };
 
   const restoreLastFile = async () => {
@@ -241,6 +282,8 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
+    setZoom(1);
+    clearSearch();
   };
 
   const handleOpenUploadPicker = () => {
@@ -282,10 +325,8 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
-    setSearchQuery("");
-    setSearchResults([]);
-    setActiveSearchIndex(-1);
-
+    setZoom(1);
+    clearSearch();
   };
 
   const handleOpenPreviousFile = async (fileId) => {
@@ -311,9 +352,8 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
-    setSearchQuery("");
-    setSearchResults([]);
-    setActiveSearchIndex(-1);
+    setZoom(1);
+    clearSearch();
   };
 
   const handleDeletePreviousFile = async (fileId) => {
@@ -341,13 +381,17 @@ export default function App() {
     resetCurrentFile();
   };
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     await exportEditedPdf({
       fileRecord,
       edits,
       pageViewports
     });
-  };
+  }, [
+    fileRecord,
+    edits,
+    pageViewports
+  ]);
 
   const handlePrint = async () => {
     await printEditedPdf({
@@ -355,6 +399,31 @@ export default function App() {
       edits,
       pageViewports
     });
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+  };
+
+  const goToSearchResult = (index) => {
+    if (searchResults.length === 0) return;
+
+    const safeIndex =
+      (index + searchResults.length) %
+      searchResults.length;
+
+    const result = searchResults[safeIndex];
+
+    setActiveSearchIndex(safeIndex);
+    setSelectedPage(result.pageNumber);
+  };
+
+  const handleSearchNext = () => {
+    goToSearchResult(activeSearchIndex + 1);
+  };
+
+  const handleSearchPrev = () => {
+    goToSearchResult(activeSearchIndex - 1);
   };
 
   const updateSelectedElement = useCallback(
@@ -402,7 +471,7 @@ export default function App() {
     setEdits
   ]);
 
-  const handleDone = () => {
+  const handleDone = useCallback(() => {
     setActiveTool("select");
     setSelectedElement(null);
 
@@ -412,7 +481,7 @@ export default function App() {
         selected: false
       }))
     );
-  };
+  }, [setEdits]);
 
   const handleUndo = useCallback(() => {
     setUndoStack((history) => {
@@ -528,6 +597,30 @@ export default function App() {
       }
 
       if (
+        modKey &&
+        (event.key === "+" || event.key === "=")
+      ) {
+        event.preventDefault();
+        handleZoomIn();
+      }
+
+      if (
+        modKey &&
+        event.key === "-"
+      ) {
+        event.preventDefault();
+        handleZoomOut();
+      }
+
+      if (
+        modKey &&
+        event.key === "0"
+      ) {
+        event.preventDefault();
+        handleZoomReset();
+      }
+
+      if (
         event.key === "Delete" ||
         event.key === "Backspace"
       ) {
@@ -569,7 +662,10 @@ export default function App() {
     handleUndo,
     handleRedo,
     handleDone,
-    handleDownload
+    handleDownload,
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomReset
   ]);
 
   const pages = Array.from(
@@ -579,8 +675,22 @@ export default function App() {
     (_, index) => index + 1
   );
 
+  if (!isLoggedIn) {
+    return (
+      <LocalLogin
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-[#f3f4f6] text-[#111827]">
+      {showFirstTimeNotice && (
+        <FirstTimeNotice
+          onClose={handleCloseFirstTimeNotice}
+        />
+      )}
+
       <input
         ref={uploadInputRef}
         type="file"
@@ -598,11 +708,16 @@ export default function App() {
         onClearAllFiles={handleClearAllFiles}
         onPrint={handlePrint}
         onDownload={handleDownload}
+        onLogout={handleLogout}
+        onShowHelp={handleShowHelp}
+        zoom={zoom}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomReset={handleZoomReset}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         searchCount={searchResults.length}
         activeSearchIndex={activeSearchIndex}
-        searchLoading={searchLoading}
         onSearchPrev={handleSearchPrev}
         onSearchNext={handleSearchNext}
       />
@@ -642,6 +757,10 @@ export default function App() {
               setPageViewports={setPageViewports}
               searchResults={searchResults}
               activeSearchIndex={activeSearchIndex}
+              zoom={zoom}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onZoomReset={handleZoomReset}
             />
           )}
         </main>

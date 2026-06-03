@@ -66,12 +66,22 @@ export async function extractPdfTextItems({
 
       const x = transform[4];
 
-      const fontHeight =
+      const transformFontSize =
+        Math.hypot(transform[2], transform[3]) ||
         Math.abs(transform[3]) ||
         Math.abs(Number(item.height || 0) * scale) ||
         12;
 
-      const height = Math.max(fontHeight, 8);
+      const fontSize = Math.max(
+        6,
+        Math.round(transformFontSize)
+      );
+
+      const height = Math.max(
+        fontSize * 1.2,
+        8
+      );
+
       const y = transform[5] - height;
 
       const styleInfo = styles[item.fontName] || {};
@@ -89,7 +99,7 @@ export async function extractPdfTextItems({
       const width = getItemWidth({
         item,
         text,
-        fontHeight,
+        fontHeight: fontSize,
         scale
       });
 
@@ -103,10 +113,7 @@ export async function extractPdfTextItems({
         height,
         endX: x + width,
         centerY: y + height / 2,
-        fontSize: Math.max(
-          8,
-          Math.round(height * 0.9)
-        ),
+        fontSize,
         fontName: item.fontName,
         originalFontFamily: styleInfo.fontFamily || "",
         fontFamily: detectedFontFamily,
@@ -176,11 +183,8 @@ export async function extractPdfTextItems({
     line.height = Math.max(line.height, item.height);
     line.centerY = line.y + line.height / 2;
 
-    line.fontSize = Math.round(
-      line.items.reduce(
-        (sum, part) => sum + part.fontSize,
-        0
-      ) / line.items.length
+    line.fontSize = Math.max(
+      ...line.items.map((part) => part.fontSize || 12)
     );
 
     line.fontWeight =
