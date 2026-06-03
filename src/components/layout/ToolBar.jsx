@@ -1,6 +1,7 @@
 import {
   Upload,
   Type,
+  Edit3,
   PenLine,
   Image,
   Highlighter,
@@ -23,6 +24,11 @@ const tools = [
     icon: Type
   },
   {
+    id: "editText",
+    label: "Edit Text",
+    icon: Edit3
+  },
+  {
     id: "cover",
     label: "Cover",
     icon: Square
@@ -41,11 +47,6 @@ const tools = [
     id: "highlight",
     label: "Highlight",
     icon: Highlighter
-  },
-  {
-    id: "select",
-    label: "Select",
-    icon: MousePointer2
   }
 ];
 
@@ -53,7 +54,6 @@ export default function ToolBar({
   activeTool,
   setActiveTool,
   onUpload,
-  onDone,
   onUndo,
   onRedo
 }) {
@@ -108,14 +108,6 @@ export default function ToolBar({
             </button>
           );
         })}
-
-        <button
-          onClick={onDone}
-          className="ml-3 h-9 px-4 rounded-md flex items-center gap-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
-        >
-          <Check size={17} />
-          Done
-        </button>
       </div>
     </div>
   );

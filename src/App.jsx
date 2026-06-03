@@ -11,6 +11,7 @@ import LeftPagesSidebar from "./components/layout/LeftPagesSidebar";
 import RightPanel from "./components/layout/RightPanel";
 import UploadScreen from "./components/screens/UploadScreen";
 import EditorScreen from "./components/screens/EditorScreen";
+import { extractPdfTextItems } from "./utils/extractPdfText";
 
 import {
   savePdfFile,
@@ -24,7 +25,10 @@ import {
   deletePdfFileById
 } from "./utils/localDb";
 
-import { exportEditedPdf } from "./utils/exportPdf";
+import {
+  exportEditedPdf,
+  printEditedPdf
+} from "./utils/exportPdf";
 
 export default function App() {
   const uploadInputRef = useRef(null);
@@ -43,6 +47,11 @@ export default function App() {
   const [recentFiles, setRecentFiles] = useState([]);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const commitEdits = useCallback((updater) => {
     setEditsState((prev) => {
@@ -91,6 +100,105 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [edits, fileRecord?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const runSearch = async () => {
+      const query = searchQuery.trim().toLowerCase();
+
+      if (!fileUrl || !query || !numPages) {
+        setSearchResults([]);
+        setActiveSearchIndex(-1);
+        return;
+      }
+
+      setSearchLoading(true);
+
+      try {
+        const allMatches = [];
+
+        for (let page = 1; page <= numPages; page++) {
+          const items = await extractPdfTextItems({
+            fileUrl,
+            pageNumber: page,
+            renderWidth: 820
+          });
+
+          for (const item of items) {
+            if (
+              String(item.text || "")
+                .toLowerCase()
+                .includes(query)
+            ) {
+              allMatches.push({
+                ...item,
+                searchId: `${page}-${item.id}`,
+                pageNumber: page
+              });
+            }
+          }
+        }
+
+        if (cancelled) return;
+
+        setSearchResults(allMatches);
+
+        if (allMatches.length > 0) {
+          setActiveSearchIndex(0);
+          setSelectedPage(allMatches[0].pageNumber);
+        } else {
+          setActiveSearchIndex(-1);
+        }
+      } catch (error) {
+        console.error("PDF search failed:", error);
+
+        if (!cancelled) {
+          setSearchResults([]);
+          setActiveSearchIndex(-1);
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    };
+
+    const timeout = setTimeout(runSearch, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [
+    searchQuery,
+    fileUrl,
+    numPages
+  ]);
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+  };
+
+  const goToSearchResult = (index) => {
+    if (searchResults.length === 0) return;
+
+    const safeIndex =
+      (index + searchResults.length) % searchResults.length;
+
+    const result = searchResults[safeIndex];
+
+    setActiveSearchIndex(safeIndex);
+    setSelectedPage(result.pageNumber);
+  };
+
+  const handleSearchNext = () => {
+    goToSearchResult(activeSearchIndex + 1);
+  };
+
+  const handleSearchPrev = () => {
+    goToSearchResult(activeSearchIndex - 1);
+  };
+
   const resetCurrentFile = () => {
     if (fileUrl) {
       URL.revokeObjectURL(fileUrl);
@@ -106,6 +214,9 @@ export default function App() {
     setSelectedElement(null);
     setNumPages(0);
     setActiveTool("upload");
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveSearchIndex(-1);
   };
 
   const restoreLastFile = async () => {
@@ -171,6 +282,10 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveSearchIndex(-1);
+
   };
 
   const handleOpenPreviousFile = async (fileId) => {
@@ -196,6 +311,9 @@ export default function App() {
     setSelectedPage(1);
     setSelectedElement(null);
     setActiveTool("select");
+    setSearchQuery("");
+    setSearchResults([]);
+    setActiveSearchIndex(-1);
   };
 
   const handleDeletePreviousFile = async (fileId) => {
@@ -225,6 +343,14 @@ export default function App() {
 
   const handleDownload = async () => {
     await exportEditedPdf({
+      fileRecord,
+      edits,
+      pageViewports
+    });
+  };
+
+  const handlePrint = async () => {
+    await printEditedPdf({
       fileRecord,
       edits,
       pageViewports
@@ -338,6 +464,15 @@ export default function App() {
         tag === "textarea" ||
         tag === "select";
 
+      const isMac =
+        navigator.platform
+          .toLowerCase()
+          .includes("mac");
+
+      const modKey = isMac
+        ? event.metaKey
+        : event.ctrlKey;
+
       if (isTyping) return;
 
       if (event.key === "Escape") {
@@ -351,6 +486,11 @@ export default function App() {
         if (key === "t") {
           event.preventDefault();
           setActiveTool("text");
+        }
+
+        if (key === "e") {
+          event.preventDefault();
+          setActiveTool("editText");
         }
 
         if (key === "c") {
@@ -386,15 +526,6 @@ export default function App() {
         event.preventDefault();
         handleDownload();
       }
-
-      const isMac =
-        navigator.platform
-          .toLowerCase()
-          .includes("mac");
-
-      const modKey = isMac
-        ? event.metaKey
-        : event.ctrlKey;
 
       if (
         event.key === "Delete" ||
@@ -465,7 +596,15 @@ export default function App() {
         onOpenPreviousFile={handleOpenPreviousFile}
         onDeletePreviousFile={handleDeletePreviousFile}
         onClearAllFiles={handleClearAllFiles}
+        onPrint={handlePrint}
         onDownload={handleDownload}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        searchCount={searchResults.length}
+        activeSearchIndex={activeSearchIndex}
+        searchLoading={searchLoading}
+        onSearchPrev={handleSearchPrev}
+        onSearchNext={handleSearchNext}
       />
 
       <ToolBar
@@ -501,6 +640,8 @@ export default function App() {
               edits={edits}
               setEdits={setEdits}
               setPageViewports={setPageViewports}
+              searchResults={searchResults}
+              activeSearchIndex={activeSearchIndex}
             />
           )}
         </main>
